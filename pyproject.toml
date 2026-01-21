@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robotframework-qtexpert"
+dynamic = ["version"]
+authors = [{ name="Thulasi Siripireddy", email="tulasirm6@gmail.com" }]
+description = "A unified Robot Framework library for testing Qt applications via Agent or Accessibility APIs."
+readme = "README.md"
+keywords = ["robotframework", "qt", "pyqt", "pyside", "automation", "testing", "accessibility"]
+license = "Apache-2.0"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Framework :: Robot Framework",
+    "Topic :: Software Development :: Testing",
+    "Operating System :: OS Independent",
+]
+dependencies = ["robotframework"]
+
+[project.optional-dependencies]
+# Agent Mode Dependencies
+agent-pyqt5 = ["PyQt5"]
+agent-pyside2 = ["PySide2"]
+agent-pyqt6 = ["PyQt6"]
+agent-pyside6 = ["PySide6"]
+agent-all = ["PyQt5", "PySide2", "PyQt6", "PySide6"]
+
+# Accessibility Mode Dependencies
+a11y-windows = ["pywinauto"]
+a11y-linux = ["pyatspi"]
+a11y-macos = ["pyobjc-framework-Cocoa", "pyobjc-framework-Quartz"]
+a11y-all = ["pywinauto", "pyatspi", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz"]
+
+# The ultimate meta-dependency
+all = ["PyQt5", "PySide2", "PyQt6", "PySide6", "pywinauto", "pyatspi", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz"]
+
+[project.urls]
+Homepage = "https://github.com/tulasirm6/robotframework-qtexpert"
+"Bug Tracker" = "https://github.com/tulasirm6/robotframework-qtexpert/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "robotframework_qtexpert.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

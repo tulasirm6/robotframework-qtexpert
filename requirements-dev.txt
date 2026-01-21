@@ -1,0 +1,4 @@
+-e .[all]
+pytest
+black
+flake8

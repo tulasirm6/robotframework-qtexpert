@@ -1,0 +1,7 @@
+robotframework
+# Optional dependencies (choose based on your platform/mode)
+# PyQt6  # For Agent mode
+# pyobjc-framework-Cocoa  # For macOS A11y
+# pyobjc-framework-Quartz # For macOS A11y
+# pywinauto # For Windows A11y
+# pyatspi # For Linux A11y
