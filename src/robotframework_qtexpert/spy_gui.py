@@ -49,8 +49,8 @@ class SpyMainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("QtExpert Object Spy - Desktop UI Inspector")
         self.setObjectName("qtexpertSpyWindow")
-        self.resize(500, 680)
-        self.move(515, 25)
+        self.resize(440, 520)
+        self.move(570, 20)
 
         self.client: Optional[QtAgentClient] = None
         self.current_tree_data: Dict[str, Any] = {}
@@ -204,28 +204,34 @@ class SpyMainWindow(QMainWindow):
         self.max_btn.setFixedWidth(36)
         self.max_btn.clicked.connect(self.toggle_maximized)
 
-        top_bar.addWidget(title_lbl)
-        top_bar.addSpacing(15)
-        top_bar.addWidget(host_lbl)
-        top_bar.addWidget(self.host_input)
-        top_bar.addWidget(port_lbl)
-        top_bar.addWidget(self.port_input)
-        top_bar.addWidget(self.connect_btn)
-        top_bar.addWidget(self.inspect_btn)
-        top_bar.addWidget(self.refresh_btn)
-        top_bar.addWidget(self.export_btn)
-        top_bar.addStretch()
-        top_bar.addWidget(self.status_badge)
-        top_bar.addSpacing(8)
-        top_bar.addWidget(self.min_btn)
-        top_bar.addWidget(self.max_btn)
+        top_row1 = QHBoxLayout()
+        top_row1.setSpacing(6)
+        top_row1.addWidget(title_lbl)
+        top_row1.addSpacing(6)
+        top_row1.addWidget(host_lbl)
+        top_row1.addWidget(self.host_input)
+        top_row1.addWidget(port_lbl)
+        top_row1.addWidget(self.port_input)
+        top_row1.addWidget(self.connect_btn)
+        top_row1.addStretch()
+        top_row1.addWidget(self.min_btn)
+        top_row1.addWidget(self.max_btn)
 
-        main_layout.addLayout(top_bar)
+        top_row2 = QHBoxLayout()
+        top_row2.setSpacing(6)
+        top_row2.addWidget(self.inspect_btn)
+        top_row2.addWidget(self.refresh_btn)
+        top_row2.addWidget(self.export_btn)
+        top_row2.addStretch()
+        top_row2.addWidget(self.status_badge)
+
+        main_layout.addLayout(top_row1)
+        main_layout.addLayout(top_row2)
 
         # -------------------------------------------------------------
-        # 2. Main Content Splitter (Left: Tree, Right: Inspector & Actions)
+        # 2. Main Content Splitter (Top: Tree, Bottom: Inspector & Actions)
         # -------------------------------------------------------------
-        splitter = QSplitter(getattr(QtCore.Qt, 'Orientation', QtCore.Qt).Horizontal)
+        splitter = QSplitter(getattr(QtCore.Qt, 'Orientation', QtCore.Qt).Vertical)
 
         # Left Container
         left_widget = QWidget()
@@ -338,8 +344,8 @@ class SpyMainWindow(QMainWindow):
         right_layout.addWidget(action_box)
 
         splitter.addWidget(right_widget)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
 
         main_layout.addWidget(splitter)
 
