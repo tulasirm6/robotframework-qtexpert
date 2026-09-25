@@ -1,11 +1,31 @@
-FROM rockylinux:9
+FROM registry.access.redhat.com/ubi9/ubi:latest
 
 ENV TZ=Etc/UTC \
     DISPLAY=:99
 
-# Install build tools, native Linux 9 Qt5 development libraries (Qt5Core, Gui, Widgets, Network, Test), and Xvfb
-RUN dnf install -y epel-release dnf-plugins-core \
-    && crb enable \
+# Configure CentOS Stream 9 AppStream, BaseOS, CRB and EPEL 9 repos to access GUI/X11/Qt5 packages on RHEL 9 UBI
+RUN cat << 'EOF' > /etc/yum.repos.d/centos-stream.repo
+[centos-baseos]
+name=CentOS Stream 9 - BaseOS
+baseurl=https://mirror.stream.centos.org/9-stream/BaseOS/$basearch/os/
+gpgcheck=0
+enabled=1
+
+[centos-appstream]
+name=CentOS Stream 9 - AppStream
+baseurl=https://mirror.stream.centos.org/9-stream/AppStream/$basearch/os/
+gpgcheck=0
+enabled=1
+
+[centos-crb]
+name=CentOS Stream 9 - CRB
+baseurl=https://mirror.stream.centos.org/9-stream/CRB/$basearch/os/
+gpgcheck=0
+enabled=1
+EOF
+
+# Install EPEL 9, development tools, native RHEL 9 Qt5 libraries, Xvfb, x11vnc, openbox
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
     && dnf install -y \
         gcc-c++ \
         cmake \
