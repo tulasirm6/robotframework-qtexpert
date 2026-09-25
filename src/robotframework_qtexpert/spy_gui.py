@@ -38,6 +38,12 @@ QHeaderView = QtWidgets.QHeaderView
 QApplication = QtWidgets.QApplication
 
 
+class _InspectBridge(QtCore.QObject if QtCore else object):
+    if QtCore and hasattr(QtCore, 'Signal'):
+        hover_event = QtCore.Signal(dict)
+        pick_event = QtCore.Signal(dict)
+
+
 class SpyMainWindow(QMainWindow):
     def __init__(self, host="127.0.0.1", port=9988):
         super().__init__()
@@ -48,6 +54,13 @@ class SpyMainWindow(QMainWindow):
         self.client: Optional[QtAgentClient] = None
         self.current_tree_data: Dict[str, Any] = {}
         self.selected_node_data: Optional[Dict[str, Any]] = None
+
+        if QtCore and hasattr(QtCore, 'Signal'):
+            self.bridge = _InspectBridge()
+            self.bridge.hover_event.connect(self.on_hover_event)
+            self.bridge.pick_event.connect(self.on_pick_event)
+        else:
+            self.bridge = None
 
         self._apply_dark_theme()
         self._init_ui(host, port)
@@ -162,6 +175,12 @@ class SpyMainWindow(QMainWindow):
         self.connect_btn.setObjectName("btnSuccess")
         self.connect_btn.clicked.connect(self.on_connect_clicked)
 
+        self.inspect_btn = QPushButton("🎯 Hover & Pick Tool")
+        self.inspect_btn.setCheckable(True)
+        self.inspect_btn.setEnabled(False)
+        self.inspect_btn.setToolTip("Live element inspection: Move mouse over any widget in the target app or click it to lock selection")
+        self.inspect_btn.clicked.connect(self.on_toggle_inspect)
+
         self.refresh_btn = QPushButton("🔄 Refresh Tree")
         self.refresh_btn.setEnabled(False)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
@@ -191,6 +210,7 @@ class SpyMainWindow(QMainWindow):
         top_bar.addWidget(port_lbl)
         top_bar.addWidget(self.port_input)
         top_bar.addWidget(self.connect_btn)
+        top_bar.addWidget(self.inspect_btn)
         top_bar.addWidget(self.refresh_btn)
         top_bar.addWidget(self.export_btn)
         top_bar.addStretch()
@@ -335,9 +355,11 @@ class SpyMainWindow(QMainWindow):
 
         try:
             self.client = QtAgentClient(host=host, port=port, timeout=4.0)
+            self.client.register_event_callback(self._on_client_event)
             self.client.connect(retry_seconds=2.0)
             self.status_badge.setText(f"🟢 Connected ({host}:{port})")
             self.status_badge.setStyleSheet("color: #34d399; font-weight: bold; padding-left: 8px;")
+            self.inspect_btn.setEnabled(True)
             self.refresh_btn.setEnabled(True)
             self.export_btn.setEnabled(True)
             self._log_msg(f"Connected to Qt Agent at {host}:{port}")
@@ -345,9 +367,118 @@ class SpyMainWindow(QMainWindow):
         except Exception as e:
             self.status_badge.setText("🔴 Disconnected")
             self.status_badge.setStyleSheet("color: #f87171; font-weight: bold; padding-left: 8px;")
+            self.inspect_btn.setEnabled(False)
+            self.inspect_btn.setChecked(False)
             self.refresh_btn.setEnabled(False)
             self.export_btn.setEnabled(False)
             QMessageBox.critical(self, "Connection Error", f"Could not connect to Qt Agent at {host}:{port}\n\nError: {e}")
+
+    def _on_client_event(self, event: Dict[str, Any]):
+        if not self.bridge:
+            return
+        evt_type = event.get("type")
+        if evt_type == "hoverWidget":
+            self.bridge.hover_event.emit(event)
+        elif evt_type == "pickWidget":
+            self.bridge.pick_event.emit(event)
+
+    def on_toggle_inspect(self, checked: bool):
+        if not self.client or not self.client.is_connected():
+            self.inspect_btn.setChecked(False)
+            return
+
+        if checked:
+            try:
+                self.client.send_command("startInspect")
+                self.inspect_btn.setText("🛑 Stop Inspect")
+                self.inspect_btn.setStyleSheet("background-color: #0284c7; color: #ffffff; font-weight: bold; border: 1px solid #38bdf8;")
+                self.status_badge.setText("🎯 Inspect Active (Hover / Pick in App)")
+                self.status_badge.setStyleSheet("color: #38bdf8; font-weight: bold; padding-left: 8px;")
+                self._log_msg("🎯 Inspect Mode Active: Move mouse over any widget in the target app to inspect it live, or click it to lock selection.")
+            except Exception as e:
+                self.inspect_btn.setChecked(False)
+                QMessageBox.critical(self, "Inspect Error", f"Failed to start inspect mode: {e}")
+        else:
+            try:
+                self.client.send_command("stopInspect")
+            except Exception:
+                pass
+            self.inspect_btn.setText("🎯 Hover & Pick Tool")
+            self.inspect_btn.setStyleSheet("")
+            self.status_badge.setText(f"🟢 Connected ({self.client.host}:{self.client.port})")
+            self.status_badge.setStyleSheet("color: #34d399; font-weight: bold; padding-left: 8px;")
+            self._log_msg("Inspect mode stopped.")
+
+    def on_hover_event(self, event: Dict[str, Any]):
+        node = event.get("widget", {})
+        locator = event.get("locator", "")
+
+        class_name = node.get("className", "QWidget")
+        obj_name = node.get("objectName", "")
+        disp = f"<{class_name}> {obj_name}" if obj_name else f"<{class_name}>"
+        self.status_badge.setText(f"🎯 Inspecting: {disp}")
+        self.status_badge.setStyleSheet("color: #38bdf8; font-weight: bold; padding-left: 8px;")
+
+        self.selected_node_data = node
+        self.click_btn.setEnabled(True)
+        self.type_btn.setEnabled(True)
+
+        self._update_locators(node)
+        if locator:
+            self.primary_loc_input.setText(locator)
+        self._update_properties_table(node)
+        self._highlight_widget_in_tree(node)
+
+    def on_pick_event(self, event: Dict[str, Any]):
+        self.on_hover_event(event)
+        self.inspect_btn.setChecked(False)
+        self.inspect_btn.setText("🎯 Hover & Pick Tool")
+        self.inspect_btn.setStyleSheet("")
+        locator = event.get("locator", "")
+        self.status_badge.setText(f"🟢 Picked: {locator}")
+        self.status_badge.setStyleSheet("color: #34d399; font-weight: bold; padding-left: 8px;")
+        self._log_msg(f"🎯 Successfully picked element: {locator}")
+
+    def _highlight_widget_in_tree(self, widget_info: Dict[str, Any]):
+        target_addr = widget_info.get("address")
+        target_name = widget_info.get("objectName")
+        target_class = widget_info.get("className")
+
+        def _search(item):
+            node = item.data(0, getattr(QtCore.Qt, 'ItemDataRole', QtCore.Qt).UserRole)
+            if node:
+                if target_addr and node.get("address") == target_addr:
+                    return item
+                if target_name and node.get("objectName") == target_name and node.get("className") == target_class:
+                    return item
+                if not target_name and node.get("className") == target_class and node.get("geometry") == widget_info.get("geometry"):
+                    return item
+            for i in range(item.childCount()):
+                res = _search(item.child(i))
+                if res:
+                    return res
+            return None
+
+        found_item = None
+        for i in range(self.tree_widget.topLevelItemCount()):
+            found_item = _search(self.tree_widget.topLevelItem(i))
+            if found_item:
+                break
+
+        if found_item:
+            self.tree_widget.blockSignals(True)
+            self.tree_widget.setCurrentItem(found_item)
+            self.tree_widget.scrollToItem(found_item)
+            self.tree_widget.blockSignals(False)
+
+    def closeEvent(self, event):
+        if self.client and self.client.is_connected():
+            try:
+                self.client.send_command("stopInspect")
+            except Exception:
+                pass
+            self.client.disconnect()
+        super().closeEvent(event)
 
     def on_refresh_clicked(self):
         self.load_tree()

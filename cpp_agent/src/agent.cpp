@@ -26,7 +26,8 @@
 AgentServer::AgentServer(quint16 port, QObject *parent)
     : QObject(parent), m_server(new QTcpServer(this)), m_port(port),
       m_isRecording(false), m_activeInput(nullptr),
-      m_isInspectMode(false), m_hoverTimer(nullptr), m_lastHoveredWidget(nullptr) {
+      m_isInspectMode(false), m_hoverTimer(nullptr), m_lastHoveredWidget(nullptr),
+      m_rubberBand(nullptr) {
     
     connect(m_server, &QTcpServer::newConnection, this, &AgentServer::onNewConnection);
     
@@ -696,6 +697,11 @@ QJsonObject AgentServer::handleStopInspect() {
         m_hoverTimer->stop();
     }
     m_lastHoveredWidget = nullptr;
+#if HAS_QT
+    if (m_rubberBand) {
+        m_rubberBand->hide();
+    }
+#endif
 
     if (!m_isRecording && QCoreApplication::instance()) {
         QCoreApplication::instance()->removeEventFilter(this);
@@ -711,8 +717,22 @@ void AgentServer::onHoverTick() {
     QPoint globalPos = QCursor::pos();
     QWidget *w = QApplication::widgetAt(globalPos);
 
+#if HAS_QT
+    if (w == m_rubberBand) return;
+#endif
+
     if (w && w != m_lastHoveredWidget) {
         m_lastHoveredWidget = w;
+
+#if HAS_QT
+        if (!m_rubberBand) {
+            m_rubberBand = new QRubberBand(QRubberBand::Rectangle);
+            m_rubberBand->setStyleSheet("border: 2px solid #38bdf8; background-color: rgba(56, 189, 248, 60);");
+        }
+        QPoint topLeft = w->mapToGlobal(QPoint(0, 0));
+        m_rubberBand->setGeometry(QRect(topLeft, w->size()));
+        m_rubberBand->show();
+#endif
 
         QJsonObject info;
         info["type"] = "hoverWidget";
@@ -724,6 +744,12 @@ void AgentServer::onHoverTick() {
             client->write(data);
             client->flush();
         }
+    } else if (!w) {
+#if HAS_QT
+        if (m_rubberBand) {
+            m_rubberBand->hide();
+        }
+#endif
     }
 }
 
@@ -733,6 +759,11 @@ bool AgentServer::eventFilter(QObject *watched, QEvent *event) {
         QMouseEvent *me = static_cast<QMouseEvent*>(event);
         if (me->button() == Qt::LeftButton) {
             QWidget *w = qobject_cast<QWidget*>(watched);
+#if HAS_QT
+            if (w == m_rubberBand) {
+                w = m_lastHoveredWidget;
+            }
+#endif
             if (w) {
                 QJsonObject info;
                 info["type"] = "pickWidget";

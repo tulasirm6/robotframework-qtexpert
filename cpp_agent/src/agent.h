@@ -11,6 +11,7 @@
     #include <QtCore/QJsonArray>
     #include <QtCore/QJsonDocument>
     #include <QtWidgets/QWidget>
+    #include <QtWidgets/QRubberBand>
     #include <QtCore/QSet>
   #else
     #include <QObject>
@@ -20,6 +21,7 @@
     #include <QJsonArray>
     #include <QJsonDocument>
     #include <QWidget>
+    #include <QRubberBand>
     #include <QSet>
   #endif
 #else
@@ -133,6 +135,7 @@ private:
     bool m_isInspectMode;
     QTimer *m_hoverTimer;
     QWidget *m_lastHoveredWidget;
+    QRubberBand *m_rubberBand;
 
     // Coverage tracking
     QSet<QWidget*> m_exercisedWidgets;
