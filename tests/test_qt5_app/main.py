@@ -44,12 +44,9 @@ else:
     QProgressBar = _qt_widgets.QProgressBar
     QTextEdit = _qt_widgets.QTextEdit
 
-if 'QT_AGENT_PORT_FILE' in os.environ:
-    try:
-        from robotframework_qtexpert.agent import start_agent
-    except ImportError:
-        start_agent = None
-else:
+try:
+    from robotframework_qtexpert.agent import start_agent
+except ImportError:
     start_agent = None
 
 class Qt5DemoApp(QMainWindow):
@@ -449,10 +446,23 @@ def main():
     window.show()
 
     port_file = os.environ.get('QT_AGENT_PORT_FILE')
-    if port_file and start_agent:
-        agent = start_agent(app)
-        with open(port_file, 'w') as f:
-            f.write(str(agent.port))
+    agent_port = None
+    if '--port' in sys.argv:
+        idx = sys.argv.index('--port')
+        if idx + 1 < len(sys.argv):
+            agent_port = int(sys.argv[idx + 1])
+    elif 'QT_AGENT_PORT' in os.environ:
+        agent_port = int(os.environ['QT_AGENT_PORT'])
+    elif '--agent' in sys.argv:
+        agent_port = 9988
+
+    if (port_file or agent_port is not None) and start_agent:
+        p = agent_port if agent_port is not None else 0
+        agent = start_agent(app, port=p)
+        if port_file:
+            with open(port_file, 'w') as f:
+                f.write(str(agent.port))
+        print(f"[QtAgent] Yard Manager running with agent on port {agent.port}")
 
     exec_fn = getattr(app, 'exec', getattr(app, 'exec_', None))
     sys.exit(exec_fn())
