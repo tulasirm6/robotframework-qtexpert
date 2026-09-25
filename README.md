@@ -294,13 +294,17 @@ qtexpert-spy --host 127.0.0.1 --port 9988
 To run tests in an isolated headless environment:
 
 ```bash
-# Build and run tests inside Docker container
+# Build and run tests inside Rocky Linux 9 container
 docker build -t qtexpert-gui .
 docker run -d --name qtexpert-gui -p 5900:5900 -v $(pwd):/workspace qtexpert-gui
 
+# Or build and run tests inside official Red Hat Enterprise Linux 9 (RHEL 9 / UBI 9) container
+docker build -f Dockerfile.rhel9 -t qtexpert-rhel9 .
+docker run -d --name qtexpert-rhel9 -p 5900:5900 -v $(pwd):/workspace qtexpert-rhel9
+
 # Run Robot Framework test suites
-docker exec qtexpert-gui robot --pythonpath src --outputdir results tests/docker_qt5_test.robot
-docker exec qtexpert-gui robot --pythonpath src --outputdir results tests/preload_test.robot
+docker exec qtexpert-rhel9 robot --pythonpath src --outputdir results tests/docker_qt5_test.robot
+docker exec qtexpert-rhel9 robot --pythonpath src --outputdir results tests/preload_test.robot
 ```
 
 ### Viewing Live Execution via VNC
