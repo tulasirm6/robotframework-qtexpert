@@ -49,7 +49,8 @@ class SpyMainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("QtExpert Object Spy - Desktop UI Inspector")
         self.setObjectName("qtexpertSpyWindow")
-        self.resize(1100, 750)
+        self.resize(500, 680)
+        self.move(515, 25)
 
         self.client: Optional[QtAgentClient] = None
         self.current_tree_data: Dict[str, Any] = {}
@@ -384,8 +385,10 @@ class SpyMainWindow(QMainWindow):
 
     def on_toggle_inspect(self, checked: bool):
         if not self.client or not self.client.is_connected():
-            self.inspect_btn.setChecked(False)
-            return
+            self.on_connect_clicked()
+            if not self.client or not self.client.is_connected():
+                self.inspect_btn.setChecked(False)
+                return
 
         if checked:
             try:
@@ -449,7 +452,9 @@ class SpyMainWindow(QMainWindow):
             if node:
                 if target_addr and node.get("address") == target_addr:
                     return item
-                if target_name and node.get("objectName") == target_name and node.get("className") == target_class:
+                if target_name and node.get("objectName") == target_name:
+                    return item
+                if not target_name and node.get("className") == target_class and node.get("text") == widget_info.get("text"):
                     return item
                 if not target_name and node.get("className") == target_class and node.get("geometry") == widget_info.get("geometry"):
                     return item
@@ -466,10 +471,23 @@ class SpyMainWindow(QMainWindow):
                 break
 
         if found_item:
+            # Expand all ancestors so item is visible
+            p = found_item.parent()
+            while p:
+                p.setExpanded(True)
+                p = p.parent()
+
             self.tree_widget.blockSignals(True)
+            self.tree_widget.clearSelection()
+            found_item.setSelected(True)
             self.tree_widget.setCurrentItem(found_item)
-            self.tree_widget.scrollToItem(found_item)
+            scroll_hint = getattr(getattr(QtWidgets.QAbstractItemView, 'ScrollHint', None), 'PositionAtCenter', None)
+            if scroll_hint is not None:
+                self.tree_widget.scrollToItem(found_item, scroll_hint)
+            else:
+                self.tree_widget.scrollToItem(found_item)
             self.tree_widget.blockSignals(False)
+            self.selected_node_data = found_item.data(0, getattr(QtCore.Qt, 'ItemDataRole', QtCore.Qt).UserRole)
 
     def closeEvent(self, event):
         if self.client and self.client.is_connected():
