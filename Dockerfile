@@ -40,7 +40,9 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build \
 COPY . .
 
 # Build the C++ agent (libqt_test_agent.so) and mock C++ Qt5 application
-RUN chmod +x ./build_agent.sh ./entrypoint.sh && ./build_agent.sh
+RUN chmod +x ./build_agent.sh ./entrypoint.sh bin/* \
+    && cp -f bin/* /usr/local/bin/ \
+    && ./build_agent.sh
 
 # Install robotframework-qtexpert in editable mode
 RUN pip3 install -e .
