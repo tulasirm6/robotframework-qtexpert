@@ -1,3 +1,5 @@
 #!/bin/bash
 export DISPLAY=${DISPLAY:-:99}
-exec python3 /workspace/tests/test_qt5_app/main.py "$@"
+export LD_PRELOAD=/workspace/cpp_agent/build/libqt_test_agent.so
+export QT_AGENT_PORT=${QT_AGENT_PORT:-9988}
+exec /workspace/tests/mock_app/build/qt5_mock_app "$@"
