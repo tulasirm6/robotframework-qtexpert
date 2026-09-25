@@ -12,6 +12,11 @@ setup(
     install_requires=[
         "robotframework",
     ],
+    entry_points={
+        "console_scripts": [
+            "qtexpert-spy=robotframework_qtexpert.spy_gui:main",
+        ],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Framework :: Robot Framework",

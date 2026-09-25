@@ -271,6 +271,24 @@ Widgets can be targeted using multi-attribute selectors or raw object names:
 
 ---
 
+## 🔍 Independent Desktop Object Spy GUI (`qtexpert-spy`)
+
+`robotframework-qtexpert` includes an independent, standalone desktop UI inspection tool (similar to **Froglogic Squish Object Spy** or Windows **Inspect.exe**). It connects to any running Qt application on Linux and visually inspects controls in real-time.
+
+```bash
+# Launch the standalone visual inspector
+qtexpert-spy --host 127.0.0.1 --port 9988
+```
+
+### Key Spy Capabilities:
+- **Interactive Hierarchy Tree**: Real-time searchable tree of all `QWidget`s, geometry coordinates, visibility, and labels.
+- **Instant Locator Generation**: Auto-generates the best Robot Framework locators (`name=...`, `type=... text=...`) with one-click clipboard copy.
+- **Live Action Testing Sandbox**: Send live clicks and keypresses to the target app directly from the Spy window to verify locators before writing tests.
+- **Export to JSON**: One-click dump of the entire application structure.
+
+
+---
+
 ## 🐳 Docker & Headless CI/CD Testing
 
 To run tests in an isolated headless environment:

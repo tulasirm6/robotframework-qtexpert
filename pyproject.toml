@@ -36,6 +36,9 @@ a11y-all = ["pywinauto", "pyatspi", "pyobjc-framework-Cocoa", "pyobjc-framework-
 # The ultimate meta-dependency
 all = ["PyQt5", "PySide2", "PyQt6", "PySide6", "pywinauto", "pyatspi", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz"]
 
+[project.scripts]
+qtexpert-spy = "robotframework_qtexpert.spy_gui:main"
+
 [project.urls]
 Homepage = "https://github.com/tulasirm6/robotframework-qtexpert"
 "Bug Tracker" = "https://github.com/tulasirm6/robotframework-qtexpert/issues"
