@@ -172,7 +172,17 @@ class SpyMainWindow(QMainWindow):
         self.export_btn.clicked.connect(self.on_export_clicked)
 
         self.status_badge = QLabel("🔴 Disconnected")
-        self.status_badge.setStyleSheet("color: #f87171; font-weight: bold; padding-left: 8px;")
+        self.min_btn = QPushButton("—")
+        self.min_btn.setObjectName("btnSecondary")
+        self.min_btn.setToolTip("Minimize Spy Window")
+        self.min_btn.setFixedWidth(36)
+        self.min_btn.clicked.connect(self.showMinimized)
+
+        self.max_btn = QPushButton("🗖")
+        self.max_btn.setObjectName("btnSecondary")
+        self.max_btn.setToolTip("Maximize / Restore Spy Window")
+        self.max_btn.setFixedWidth(36)
+        self.max_btn.clicked.connect(self.toggle_maximized)
 
         top_bar.addWidget(title_lbl)
         top_bar.addSpacing(15)
@@ -185,6 +195,9 @@ class SpyMainWindow(QMainWindow):
         top_bar.addWidget(self.export_btn)
         top_bar.addStretch()
         top_bar.addWidget(self.status_badge)
+        top_bar.addSpacing(8)
+        top_bar.addWidget(self.min_btn)
+        top_bar.addWidget(self.max_btn)
 
         main_layout.addLayout(top_bar)
 
@@ -554,6 +567,31 @@ class SpyMainWindow(QMainWindow):
 
     def _log_msg(self, msg: str):
         self.log_output.append(f"• {msg}")
+
+    def toggle_maximized(self):
+        if self.isMaximized():
+            self.showNormal()
+            self.max_btn.setText("🗖")
+        else:
+            self.showMaximized()
+            self.max_btn.setText("🗗")
+
+    def mousePressEvent(self, event):
+        btn = getattr(QtCore.Qt, 'MouseButton', QtCore.Qt).LeftButton
+        if event.button() == btn and event.pos().y() < 65:
+            pos = event.globalPosition().toPoint() if hasattr(event, 'globalPosition') else event.globalPos()
+            self._drag_pos = pos - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        btn = getattr(QtCore.Qt, 'MouseButton', QtCore.Qt).LeftButton
+        if getattr(self, '_drag_pos', None) and (event.buttons() & btn):
+            pos = event.globalPosition().toPoint() if hasattr(event, 'globalPosition') else event.globalPos()
+            self.move(pos - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
 
 
 def main():

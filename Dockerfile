@@ -16,6 +16,7 @@ RUN dnf install -y epel-release dnf-plugins-core \
         xcb-util-cursor \
         xorg-x11-server-Xvfb \
         x11vnc \
+        openbox \
         procps-ng \
         python3 \
         python3-pip \
