@@ -49,8 +49,8 @@ class SpyMainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("QtExpert Object Spy - Desktop UI Inspector")
         self.setObjectName("qtexpertSpyWindow")
-        self.resize(440, 520)
-        self.move(570, 20)
+        self.resize(900, 560)
+        self.move(60, 25)
 
         self.client: Optional[QtAgentClient] = None
         self.current_tree_data: Dict[str, Any] = {}
@@ -95,7 +95,8 @@ class SpyMainWindow(QMainWindow):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 4px;
-                padding: 6px 10px;
+                padding: 4px 8px;
+                font-size: 12px;
                 color: #ffffff;
             }
             QLineEdit:focus, QTextEdit:focus {
@@ -106,8 +107,9 @@ class SpyMainWindow(QMainWindow):
                 color: #ffffff;
                 border: none;
                 border-radius: 4px;
-                padding: 7px 14px;
+                padding: 5px 9px;
                 font-weight: 600;
+                font-size: 12px;
             }
             QPushButton:hover {
                 background-color: #1d4ed8;
@@ -152,86 +154,81 @@ class SpyMainWindow(QMainWindow):
         central = QWidget(self)
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(16, 14, 16, 14)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(14, 12, 14, 12)
+        main_layout.setSpacing(10)
 
         # -------------------------------------------------------------
         # 1. Connection Header Bar
         # -------------------------------------------------------------
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(10)
-
-        title_lbl = QLabel("🔍 <b>QtExpert Spy</b>")
-        title_lbl.setStyleSheet("font-size: 16px; color: #38bdf8;")
+        title_lbl = QLabel("🔍 <b>QtExpert</b>")
+        title_lbl.setStyleSheet("font-size: 15px; color: #38bdf8;")
 
         host_lbl = QLabel("Host:")
         self.host_input = QLineEdit(str(host))
-        self.host_input.setFixedWidth(110)
+        self.host_input.setFixedWidth(85)
 
         port_lbl = QLabel("Port:")
         self.port_input = QLineEdit(str(port))
-        self.port_input.setFixedWidth(70)
+        self.port_input.setFixedWidth(55)
 
-        self.connect_btn = QPushButton("Connect & Spy")
+        self.connect_btn = QPushButton("Connect")
         self.connect_btn.setObjectName("btnSuccess")
         self.connect_btn.clicked.connect(self.on_connect_clicked)
 
-        self.inspect_btn = QPushButton("🎯 Hover & Pick Tool")
+        self.inspect_btn = QPushButton("🎯 Hover & Pick")
         self.inspect_btn.setCheckable(True)
         self.inspect_btn.setEnabled(False)
         self.inspect_btn.setToolTip("Live element inspection: Move mouse over any widget in the target app or click it to lock selection")
         self.inspect_btn.clicked.connect(self.on_toggle_inspect)
 
-        self.refresh_btn = QPushButton("🔄 Refresh Tree")
+        self.refresh_btn = QPushButton("🔄 Refresh")
         self.refresh_btn.setEnabled(False)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
 
-        self.export_btn = QPushButton("💾 Export JSON")
+        self.export_btn = QPushButton("💾 Export")
         self.export_btn.setObjectName("btnSecondary")
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self.on_export_clicked)
 
         self.status_badge = QLabel("🔴 Disconnected")
+        self.status_badge.setStyleSheet("color: #f87171; font-weight: bold; padding-left: 6px;")
+
         self.min_btn = QPushButton("—")
         self.min_btn.setObjectName("btnSecondary")
         self.min_btn.setToolTip("Minimize Spy Window")
-        self.min_btn.setFixedWidth(36)
+        self.min_btn.setFixedWidth(30)
         self.min_btn.clicked.connect(self.showMinimized)
 
         self.max_btn = QPushButton("🗖")
         self.max_btn.setObjectName("btnSecondary")
         self.max_btn.setToolTip("Maximize / Restore Spy Window")
-        self.max_btn.setFixedWidth(36)
+        self.max_btn.setFixedWidth(30)
         self.max_btn.clicked.connect(self.toggle_maximized)
 
-        top_row1 = QHBoxLayout()
-        top_row1.setSpacing(6)
-        top_row1.addWidget(title_lbl)
-        top_row1.addSpacing(6)
-        top_row1.addWidget(host_lbl)
-        top_row1.addWidget(self.host_input)
-        top_row1.addWidget(port_lbl)
-        top_row1.addWidget(self.port_input)
-        top_row1.addWidget(self.connect_btn)
-        top_row1.addStretch()
-        top_row1.addWidget(self.min_btn)
-        top_row1.addWidget(self.max_btn)
+        top_bar = QHBoxLayout()
+        top_bar.setSpacing(6)
+        top_bar.addWidget(title_lbl)
+        top_bar.addSpacing(6)
+        top_bar.addWidget(host_lbl)
+        top_bar.addWidget(self.host_input)
+        top_bar.addWidget(port_lbl)
+        top_bar.addWidget(self.port_input)
+        top_bar.addWidget(self.connect_btn)
+        top_bar.addWidget(self.inspect_btn)
+        top_bar.addWidget(self.refresh_btn)
+        top_bar.addWidget(self.export_btn)
+        top_bar.addStretch()
+        top_bar.addWidget(self.status_badge)
+        top_bar.addSpacing(6)
+        top_bar.addWidget(self.min_btn)
+        top_bar.addWidget(self.max_btn)
 
-        top_row2 = QHBoxLayout()
-        top_row2.setSpacing(6)
-        top_row2.addWidget(self.inspect_btn)
-        top_row2.addWidget(self.refresh_btn)
-        top_row2.addWidget(self.export_btn)
-        top_row2.addStretch()
-        top_row2.addWidget(self.status_badge)
-
-        main_layout.addLayout(top_row1)
-        main_layout.addLayout(top_row2)
+        main_layout.addLayout(top_bar)
 
         # -------------------------------------------------------------
-        # 2. Main Content Splitter (Top: Tree, Bottom: Inspector & Actions)
+        # 2. Main Content Splitter (Left: Tree, Right: Inspector & Actions)
         # -------------------------------------------------------------
-        splitter = QSplitter(getattr(QtCore.Qt, 'Orientation', QtCore.Qt).Vertical)
+        splitter = QSplitter(getattr(QtCore.Qt, 'Orientation', QtCore.Qt).Horizontal)
 
         # Left Container
         left_widget = QWidget()
@@ -344,8 +341,8 @@ class SpyMainWindow(QMainWindow):
         right_layout.addWidget(action_box)
 
         splitter.addWidget(right_widget)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
 
         main_layout.addWidget(splitter)
 
@@ -412,7 +409,7 @@ class SpyMainWindow(QMainWindow):
                 self.client.send_command("stopInspect")
             except Exception:
                 pass
-            self.inspect_btn.setText("🎯 Hover & Pick Tool")
+            self.inspect_btn.setText("🎯 Hover & Pick")
             self.inspect_btn.setStyleSheet("")
             self.status_badge.setText(f"🟢 Connected ({self.client.host}:{self.client.port})")
             self.status_badge.setStyleSheet("color: #34d399; font-weight: bold; padding-left: 8px;")
@@ -441,7 +438,7 @@ class SpyMainWindow(QMainWindow):
     def on_pick_event(self, event: Dict[str, Any]):
         self.on_hover_event(event)
         self.inspect_btn.setChecked(False)
-        self.inspect_btn.setText("🎯 Hover & Pick Tool")
+        self.inspect_btn.setText("🎯 Hover & Pick")
         self.inspect_btn.setStyleSheet("")
         locator = event.get("locator", "")
         self.status_badge.setText(f"🟢 Picked: {locator}")
