@@ -1,0 +1,15 @@
+CompileFlags:
+  Add:
+    - "-std=c++17"
+    - "-DQT_CORE_LIB"
+    - "-DQT_GUI_LIB"
+    - "-DQT_WIDGETS_LIB"
+    - "-DQT_NETWORK_LIB"
+    - "-DQT_TEST_LIB"
+    - "-I${workspaceFolder}/.qt_include"
+    - "-I${workspaceFolder}/.qt_include/QtCore"
+    - "-I${workspaceFolder}/.qt_include/QtGui"
+    - "-I${workspaceFolder}/.qt_include/QtWidgets"
+    - "-I${workspaceFolder}/.qt_include/QtNetwork"
+    - "-I${workspaceFolder}/.qt_include/QtTest"
+    - "-I${workspaceFolder}/cpp_agent/src"

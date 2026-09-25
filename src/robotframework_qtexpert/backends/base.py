@@ -8,7 +8,7 @@ class BaseBackend(ABC):
     @abstractmethod
     def find_element(self, locator, **kwargs): pass
     @abstractmethod
-    def click(self, element): pass
+    def click(self, element, *args, **kwargs): pass
     @abstractmethod
     def get_value(self, element): pass
     @abstractmethod

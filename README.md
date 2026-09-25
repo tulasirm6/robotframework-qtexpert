@@ -1,194 +1,297 @@
 # robotframework-qtexpert
 
-A unified Robot Framework library for testing Qt applications. It provides a powerful and flexible API to automate your GUIs, whether they are open-source or closed-source, running on Linux, Windows, or macOS.
+A unified Robot Framework library for automating and testing Qt desktop applications. Built as a high-precision, open-source alternative to Froglogic Squish, it supports both Linux Qt5/Qt6 applications and cross-platform automation on Linux, Windows, and macOS.
 
-This library uniquely supports two distinct approaches to automation, allowing you to choose the best tool for your specific use case.
+---
 
-## Key Features
+## 🚀 Key Features
 
-- **Dual-Mode Operation**: Choose between the powerful Agent Mode or the non-invasive Accessibility Mode.
-- **Cross-Platform**: Test your applications on Windows, Linux, and macOS with a single test suite.
-- **Unified API**: The same keywords work regardless of the backend mode or operating system.
-- **Backward Compatible**: Agent mode supports multiple Qt bindings (PyQt5/6, PySide2/6).
-- **Robot Framework Native**: Seamlessly integrates with your existing Robot Framework test infrastructure.
+- **Tri-Mode Architecture**:
+  1. **Preload / Injected C++ Agent (`mode=preload`)**: Zero code changes! Injects into any compiled C++ or Python Qt5 binary on Linux using `LD_PRELOAD` (Squish alternative).
+  2. **In-Process Python Agent (`mode=agent`)**: Thread-safe Qt main GUI thread dispatching for Python Qt applications (PyQt5, PySide2, PyQt6, PySide6).
+  3. **Accessibility Mode (`mode=a11y`)**: Non-invasive OS-level accessibility testing (AT-SPI on Linux, UIA on Windows, AX on macOS).
+- **Universal Qt Component Support**:
+  - **Checkboxes & Radios**: `QCheckBox`, `QRadioButton` (with smart indicator-aligned click targeting).
+  - **Dropdowns & Selectors**: `QComboBox`, `QTabWidget` (with automatic ancestor tab switching).
+  - **Sliders & SpinBoxes**: `QSlider`, `QSpinBox`, `QDoubleSpinBox`.
+  - **Text & Verification**: `QLineEdit`, `QTextEdit`, `QPlainTextEdit`, `QLabel` (including HTML hyperlinks).
+  - **Indicators**: `QProgressBar`, status banners, custom properties.
+- **100% Thread-Safe on Linux**: Safely marshals network RPC commands into Qt's native GUI event loop via `QMetaObject::invokeMethod` / `BlockingQueuedConnection` to avoid X11 protocol desynchronization or GUI crashes.
+- **Squish-Style Locators**: Identify controls with multi-attribute selectors (e.g. `type=QPushButton text=Login`, `name=userInput`, `window="MainWindow" visible=true`).
+- **Realistic Event Synthesis**: Dispatches native Qt mouse and keyboard interactions using `QTest::mouseClick`, `QTest::mouseDClick`, and `QTest::keyClicks`.
+- **Live Object Spy & UI Coverage**:
+  - `Dump Object Tree`: Exports full widget hierarchies, types, and properties to JSON without needing access to application source code.
+  - `Generate UI Coverage Report`: Produces interactive HTML reports tracking screen and component test coverage.
+- **Headless CI/CD & VNC Ready**: Run headlessly under `Xvfb` or view tests running live via VNC (`localhost:5900`).
 
-## The Core Concept: Agent vs. Accessibility
+---
 
-The fundamental challenge in GUI automation is that your test script runs in a different process than your application. This library solves this in two different ways.
+## 💡 How It Works (Architecture & Concepts)
 
-### 1. Agent Mode (The "In-Process" Approach)
+```mermaid
+flowchart TD
+    subgraph TestRunner ["Robot Framework Process (Python)"]
+        RF[Robot Framework Test Suite]
+        KW[Generic Keywords: Click Object, Type Text, etc.]
+        BE[Backend Client: PreloadClient / AgentClient]
+        RF --> KW --> BE
+    end
 
-In this mode, a tiny agent server is started inside your application's process. The library (the client) communicates with this agent over a local network connection.
+    subgraph TargetApp ["Target Qt Application Process (Unmodified)"]
+        direction TB
+        subgraph InjectedAgent ["Injected Test Agent (Embedded Thread)"]
+            TCP[TCP / XML-RPC Server]
+            Dispatcher[Main Thread Event Dispatcher]
+            TCP --> Dispatcher
+        end
 
-**How it Works:** You add a few lines of code to your application to start the agent. The agent has full, direct access to all Qt objects. The library sends commands like "click button X" to the agent, which executes them using the real Qt API.
+        subgraph QtMainThread ["Qt GUI Main Event Loop"]
+            QApp[QApplication / QEventLoop]
+            Tree[QObject Hierarchy / Meta-Object System]
+            QTest[QTest Native Event Dispatcher]
+            Dispatcher -- QMetaObject::invokeMethod / BlockingQueuedConnection --> QApp
+            QApp --> Tree
+            QApp --> QTest
+        end
+    end
 
-**Pros:**
-- **Extremely Reliable**: Direct access to the Qt object model.
-- **Full Power**: Can access any Qt property or method.
-- **Stable Locators**: Uses Qt's objectName, which is the most reliable way to identify elements.
-
-**Cons:**
-- **Minimal Integration**: Requires a small, conditional code change in the application under test.
-
-**Best For:** Applications you are building yourself or where you can influence the source code.
-
-### 2. Accessibility (A11y) Mode (The "OS-Level" Approach)
-
-This mode uses the operating system's native accessibility APIs, which are designed for tools like screen readers.
-
-**How it Works:** The library connects to your application as an external assistive technology. It inspects the application's accessibility tree to find buttons, text fields, and other controls.
-
-**Pros:**
-- **No Code Changes**: Works with any application that has accessibility enabled (which is the default for most Qt apps).
-- **Ideal for Closed-Source**: Perfect for testing third-party applications where you cannot modify the code.
-
-**Cons:**
-- **Less Powerful**: Limited to what the OS API exposes.
-- **More Brittle**: Locators like text or position can change more easily than an objectName.
-
-**Best For:** Closed-source, third-party, or legacy applications where code integration is not possible.
-
-### Comparison Summary
-
-| Feature | Agent Mode | Accessibility Mode |
-|---------|------------|-------------------|
-| Reliability | Very High | Medium |
-| Power | Full Qt API Access | Limited to OS API |
-| Locator Stability | Excellent (objectName) | Medium (Text, Control Type, Position) |
-| Code Change Required? | Minimal & Conditional | None |
-| Use Case | Testable, open-source, or in-house apps | Closed-source, third-party, or legacy apps |
-
-## Installation
-
-Install the library from PyPI:
-
-```bash
-pip install robotframework-qtexpert
+    BE <-- TCP Socket (JSON Commands) --> TCP
 ```
 
-You must also install the dependencies for the mode(s) you plan to use.
+### 1. Dynamic Injection via `LD_PRELOAD`
+On Linux, the dynamic linker loads `libqt_test_agent.so` before the target application executes. A C++ constructor (`__attribute__((constructor))`) runs prior to `main()`, spawning a lightweight background monitor thread that detects `QCoreApplication::instance()` as soon as the app starts.
 
-### For Agent Mode
+### 2. Isolated IPC Bridge
+The agent binds to a local TCP socket (default port `9988`). Robot Framework runs independently in its own process, communicating with the agent via newline-delimited JSON commands. If the target application crashes, the test suite catches the socket error cleanly rather than crashing.
 
-Choose one or more Qt bindings:
+### 3. Main GUI Thread Safety
+Qt strictly forbids background threads from modifying GUI widgets directly. The agent uses Qt's meta-object invocation (`QMetaObject::invokeMethod` with `Qt::BlockingQueuedConnection` in C++, custom `QEvent` dispatcher in Python) to safely enqueue commands onto the main GUI thread and block until completion.
 
+### 4. Dynamic Object Resolution & Auto-Tab Activation
+Locators like `name=myInput` or `type=QPushButton text="Save"` are resolved dynamically by querying `QApplication::topLevelWidgets()` and traversing the `QObject` parent-child tree. If an element is located inside a hidden tab of a `QTabWidget`, the agent automatically traverses up the ancestor hierarchy, selects the appropriate tab page, and brings the widget into view before interacting with it.
+
+### 5. Application Agnostic
+Because the agent queries Qt's internal **Meta-Object System** (`QObject`, `QMetaObject`, `Q_PROPERTY`), it works out-of-the-box across any standard Qt5/Qt6 desktop application without needing application-specific modifications.
+
+---
+
+## 📊 Mode Comparison
+
+| Feature | Injected C++ Agent (`preload`) | In-Process Python Agent (`agent`) | Accessibility (`a11y`) |
+| :--- | :--- | :--- | :--- |
+| **Linux Qt5 Reliability** | **Extremely High** | **Very High** | Medium |
+| **Code Changes to App** | **Zero** (Binary injection) | Minimal (Import `start_agent`) | None |
+| **Target App Languages** | C++, Python, or any Qt5 binary | Python (PyQt5, PySide2, PyQt6, PySide6) | Any |
+| **Locator Engine** | Squish-style multi-attribute | Squish-style multi-attribute | Accessible name & role |
+| **Qt Introspection** | Direct `QMetaObject` & `Q_PROPERTY` | Full Python & Qt object model | Limited to OS Accessibility |
+| **Primary Use Case** | Closed-source or compiled Linux Qt5 apps | In-house Python Qt applications | Third-party / black-box tests |
+
+---
+
+## 🛠️ Linux Qt5 Quick Start
+
+### 1. Injected C++ Agent Mode (`mode=preload`)
+
+Build the agent shared library once on Linux:
 ```bash
-pip install robotframework-qtexpert[agent-pyqt6]
-# or
-pip install robotframework-qtexpert[agent-all]
+./build_agent.sh
 ```
 
-### For Accessibility Mode
-
-Install the dependencies for your target OS:
-
-```bash
-# For Windows
-pip install robotframework-qtexpert[a11y-windows]
-
-# For Linux
-pip install robotframework-qtexpert[a11y-linux]
-
-# For macOS
-pip install robotframework-qtexpert[a11y-macos]
-```
-
-### For Everything (Recommended for Development)
-
-```bash
-pip install robotframework-qtexpert[all]
-```
-
-## Quick Start & Usage Examples
-
-### Example 1: Using Agent Mode
-
-**Prerequisite:** Your application must be set up to launch the agent. See the `tests/test_app_agent/main.py` file in this repository for a minimal example.
-
-```robotframework
+Write your Robot Framework test:
+```robot
 *** Settings ***
-Library         qtexpert    mode=agent
-Suite Teardown  Close Application
+Documentation     Injected C++ Agent Test (Squish Alternative for Linux Qt5)
+Library           qtexpert    mode=preload    default_port=9988
+Suite Teardown    Close Application
 
 *** Variables ***
-${APP_COMMAND}      python /path/to/your/agent_enabled_app.py
-${PORT_FILE_PATH}   ${TEMPDIR}/qt_agent_port.txt
+${APP_PATH}       ${CURDIR}/mock_app/build/qt5_mock_app
+${AGENT_SO}       ${CURDIR}/../cpp_agent/build/libqt_test_agent.so
 
 *** Test Cases ***
-Test User Login With Agent
-    # Launch the app. The library will wait for the agent to write its port to the file.
-    Launch Application    ${APP_COMMAND}    port_file_path=${PORT_FILE_PATH}
+Launch And Authenticate
+    Start Application With Qt Agent    ${APP_PATH}    ${AGENT_SO}    port=9988
+    Wait For Object                    name=usernameInput    timeout=10
 
-    # Use the stable 'objectName' as a locator
-    Input Text    username_field    testuser
-    Input Text    password_field    password123
-    Click Button    login_button
+    # Click HTML Hyperlink inside QLabel
+    Click Link                         name=docLinkLabel
+    Object Property Should Be          name=docStatusLabel      text    Safety Protocol: Reviewed & Interlock Accepted
 
-    # Verify the result
-    Text Should Be    status_label    Login Successful!
+    # Checkbox interaction
+    Select Checkbox                    name=rememberMeCheck
+    Checkbox Should Be Checked         name=rememberMeCheck
+
+    # Input text using native QTest keyboard simulation
+    Type Text Into Object              name=usernameInput    admin
+    Type Text Into Object              name=passwordInput    secret123
+    Click Object                       name=loginButton
+    Object Property Should Be          name=statusLabel      text    Login Successful!
+
+Test Route Alignment With Dropdown Radios And Checkboxes
+    Select Tab                         name=mainTabWidget    Route Alignment
+
+    # Radio Button selection
+    Select Radio Button                name=radioHazmat
+    Radio Button Should Be Selected    name=radioHazmat
+    Radio Button Should Not Be Selected    name=radioExpress
+
+    # Dropdown / ComboBox selection
+    Select Combo Option                name=optionsCombo    Track 3 - Intermodal Container Yard
+    Combo Option Should Be             name=optionsCombo    Track 3 - Intermodal Container Yard
+
+Test Sliders SpinBox And Multi-Line Text
+    Select Tab                         name=mainTabWidget    Yard Operations
+
+    # Slider control
+    Set Slider Value                   name=humpSpeedSlider    40
+    Slider Value Should Be             name=humpSpeedSlider    40
+
+    # SpinBox control
+    Set Spinbox Value                  name=wagonCountSpin     35
+    Spinbox Value Should Be            name=wagonCountSpin     35
+
+    # Multi-line text edit
+    Clear And Type Text                name=shiftNotesEdit     Consist cleared on track 3.
+    Text Should Contain                name=shiftNotesEdit     cleared on track 3
+
+Export Object Spy Tree & Coverage
+    Dump Object Tree                   output_file=results/ui_tree.json
+    Generate UI Coverage Report        output_html=results/coverage.html
 ```
 
-### Example 2: Using Accessibility Mode
+---
 
-**Prerequisite:** Your application must be accessible. This is the default for most standard Qt widgets.
+### 2. In-Process Python Agent Mode (`mode=agent`)
 
-```robotframework
+In your Python Qt application entrypoint:
+```python
+import os
+from PyQt5.QtWidgets import QApplication
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+
+# Start test agent if port file path is requested by test runner
+if 'QT_AGENT_PORT_FILE' in os.environ:
+    from robotframework_qtexpert.agent import start_agent
+    agent = start_agent(app)
+    with open(os.environ['QT_AGENT_PORT_FILE'], 'w') as f:
+        f.write(str(agent.port))
+
+sys.exit(app.exec_())
+```
+
+In your Robot Framework test:
+```robot
 *** Settings ***
-Library         qtexpert    mode=a11y
-Suite Teardown  Close Application
+Library           qtexpert    mode=agent
+Suite Teardown    Close Application
 
 *** Variables ***
-${APP_COMMAND}      C:/Program Files/MyQtApp/MyQtApp.exe
-${WINDOW_TITLE}     MyQtApp Main Window
+${APP_CMD}        python3 my_qt_app.py
+${PORT_FILE}      ${TEMPDIR}/qt_port.txt
 
 *** Test Cases ***
-Test User Login With A11y
-    # Launch the app. The library will find it by its window title.
-    Launch Application    ${APP_COMMAND}    window_title=${WINDOW_TITLE}
-
-    # Use visible text or control types as locators
-    Input Text    Username    testuser
-    Input Text    Password    password123
-    Click Button    Login
-
-    # Verify the result
-    Text Should Be    Login Successful!    # Locates a label with this text
+Interact With Qt5 Controls
+    Launch Application    ${APP_CMD}    port_file_path=${PORT_FILE}
+    Wait For Object       name=usernameInput    timeout=10
+    Type Text Into Object name=usernameInput    admin
+    Click Object          name=loginButton
+    Object Property Should Be    name=statusLabel    text    Login Successful!
 ```
 
-## Keyword Reference
+---
 
-The library is organized into logical keyword groups:
+## 🔍 Squish-Style Locator Syntax
 
-- **Application**: `Launch Application`, `Close Application`
-- **Generic**: `Click Button`, `Input Text`, `Text Should Be`
+Widgets can be targeted using multi-attribute selectors or raw object names:
 
-For a full list of keywords and their arguments, please refer to the Keyword Documentation.
+| Syntax | Example | Description |
+| :--- | :--- | :--- |
+| **Object Name** | `name=submitButton` or `submitButton` | Matches `QObject::objectName()` |
+| **Class & Text** | `type=QPushButton text="Login"` | Matches Qt class and button label |
+| **Window & Type** | `window="MainWindow" type=QLineEdit` | Scopes search to a specific window |
+| **State Filter** | `name=saveBtn visible=true enabled=true` | Matches only active controls |
+| **Dictionary** | `{"objectName": "btn", "visible": True}` | Direct Python dictionary |
 
-## Development & Publishing
+---
 
-To build the package for PyPI:
+## 📚 Keyword Reference
 
-1. Install build tools:
-   ```bash
-   pip install build twine
-   ```
-2. Build the source distribution and wheel:
-   ```bash
-   python -m build
-   ```
-3. Upload to PyPI (requires credentials):
-   ```bash
-   python -m twine upload dist/*
-   ```
+### Application Lifecycle
+- `Launch Application | command, [mode], [window_title], [port_file_path], [agent_so_path], [port], [timeout]`
+- `Start Application With Qt Agent | application_path, agent_so_path, [arguments], [port], [timeout]`
+- `Connect To Qt Agent | [host], [port], [timeout]`
+- `Close Application`
 
-## Contributing
+### Component Actions & Automation
+- `Click Object | locator, [button='left'], [x=-1], [y=-1], [double=False]`
+- `Double Click Object | locator`
+- `Right Click Object | locator`
+- `Type Text Into Object | locator, text, [delay_ms=-1]`
+- `Clear Text | locator`
+- `Clear And Type Text | locator, text`
+- `Press Key On Object | locator, key, [modifiers='']`
+- `Select Tab | locator, tab`
+- `Click Link | locator, [link_target='']`
 
-Contributions are welcome! If you have a bug report, feature request, or want to submit a pull request, please visit our GitHub Issues page.
+### Checkboxes & Radio Buttons
+- `Select Checkbox | locator`
+- `Unselect Checkbox | locator`
+- `Checkbox Should Be Checked | locator`
+- `Checkbox Should Not Be Checked | locator`
+- `Select Radio Button | locator`
+- `Radio Button Should Be Selected | locator`
+- `Radio Button Should Not Be Selected | locator`
 
-For major changes, please open an issue first to discuss what you would like to change.
+### Dropdowns, Sliders & SpinBoxes
+- `Select Combo Option | locator, option`
+- `Combo Option Should Be | locator, expected_option`
+- `Set Slider Value | locator, value`
+- `Slider Value Should Be | locator, expected_value`
+- `Set Spinbox Value | locator, value`
+- `Spinbox Value Should Be | locator, expected_value`
 
-Please ensure you add tests for any new features and that all existing tests pass.
+### Assertions & State Verification
+- `Get Object Property | locator, property_name`
+- `Set Object Property | locator, property_name, value`
+- `Object Property Should Be | locator, property_name, expected_value`
+- `Text Should Be | locator, expected_text`
+- `Text Should Contain | locator, expected_substring`
+- `Object Should Exist | locator`
+- `Object Should Not Exist | locator`
+- `Wait For Object | locator, [timeout=10.0], [poll_interval=0.2]`
+- `Wait For Object To Disappear | locator, [timeout=10.0], [poll_interval=0.2]`
 
-## License
+### Object Spy & UI Coverage
+- `Dump Object Tree | [output_file], [root_locator]`
+- `Get UI Coverage`
+- `Generate UI Coverage Report | [output_html], [output_json]`
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+---
+
+## 🐳 Docker & Headless CI/CD Testing
+
+To run tests in an isolated headless environment:
+
+```bash
+# Build and run tests inside Docker container
+docker build -t qtexpert-gui .
+docker run -d --name qtexpert-gui -p 5900:5900 -v $(pwd):/workspace qtexpert-gui
+
+# Run Robot Framework test suites
+docker exec qtexpert-gui robot --pythonpath src --outputdir results tests/docker_qt5_test.robot
+docker exec qtexpert-gui robot --pythonpath src --outputdir results tests/preload_test.robot
+```
+
+### Viewing Live Execution via VNC
+Connect to `localhost:5900` using any VNC Viewer (e.g. RealVNC, TigerVNC, or macOS Screen Sharing):
+- **Address:** `localhost:5900`
+- **Password:** `secret`
+
+---
+
+## 📄 License
+
+Apache License 2.0.

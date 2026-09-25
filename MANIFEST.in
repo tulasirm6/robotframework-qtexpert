@@ -1,3 +1,6 @@
 include LICENSE
 include README.md
+include build_agent.sh
 recursive-include src *.py
+recursive-include src/robotframework_qtexpert/bin *
+recursive-include cpp_agent *

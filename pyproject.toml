@@ -45,3 +45,6 @@ version = {attr = "robotframework_qtexpert.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+robotframework_qtexpert = ["bin/*", "bin/*.so"]
