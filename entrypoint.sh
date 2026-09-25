@@ -17,6 +17,9 @@ x11vnc -display :99 -rfbauth /root/.vnc/passwd -forever -shared -bg -quiet > /de
 # Start Openbox Window Manager for movable/resizable windows with titlebars
 openbox &
 
+# Start tint2 taskbar so minimized windows can be seen and restored with a click
+tint2 &
+
 echo "=== Headless Xvfb Display :99 Started (PID: ${XVFB_PID}) ==="
 echo "=== VNC Server Started on port 5900 (Password: secret) ==="
 echo "=== Connect from macOS via: open vnc://:secret@localhost:5900 ==="

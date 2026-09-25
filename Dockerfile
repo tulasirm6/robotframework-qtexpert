@@ -19,6 +19,8 @@ RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.n
         xorg-x11-server-Xvfb \
         x11vnc \
         openbox \
+        tint2 \
+        wmctrl \
         procps-ng \
         python3 \
         python3-pip \
