@@ -11,7 +11,7 @@ import json
 import argparse
 from typing import Dict, Any, Optional
 
-from robotframework_qtexpert.qt_compat import QtCore, QtWidgets, QtGui, QtTest, QT_BINDING
+from robotframework_qtexpert.qt_compat import QtCore, QtWidgets, QtGui, QtTest, QT_BINDING, Signal
 from robotframework_qtexpert.client import QtAgentClient
 
 if not QtWidgets:
@@ -39,9 +39,9 @@ QApplication = QtWidgets.QApplication
 
 
 class _InspectBridge(QtCore.QObject if QtCore else object):
-    if QtCore and hasattr(QtCore, 'Signal'):
-        hover_event = QtCore.Signal(dict)
-        pick_event = QtCore.Signal(dict)
+    if Signal:
+        hover_event = Signal(dict)
+        pick_event = Signal(dict)
 
 
 class SpyMainWindow(QMainWindow):
@@ -56,7 +56,7 @@ class SpyMainWindow(QMainWindow):
         self.current_tree_data: Dict[str, Any] = {}
         self.selected_node_data: Optional[Dict[str, Any]] = None
 
-        if QtCore and hasattr(QtCore, 'Signal'):
+        if QtCore and Signal:
             self.bridge = _InspectBridge()
             self.bridge.hover_event.connect(self.on_hover_event)
             self.bridge.pick_event.connect(self.on_pick_event)
@@ -193,6 +193,13 @@ class SpyMainWindow(QMainWindow):
         self.status_badge = QLabel("🔴 Disconnected")
         self.status_badge.setStyleSheet("color: #f87171; font-weight: bold; padding-left: 6px;")
 
+        self.pin_btn = QPushButton("📌")
+        self.pin_btn.setObjectName("btnSecondary")
+        self.pin_btn.setCheckable(True)
+        self.pin_btn.setToolTip("Toggle Always On Top (Stay in front of target app)")
+        self.pin_btn.setFixedWidth(30)
+        self.pin_btn.toggled.connect(self.toggle_pin)
+
         self.min_btn = QPushButton("—")
         self.min_btn.setObjectName("btnSecondary")
         self.min_btn.setToolTip("Minimize Spy Window")
@@ -220,6 +227,7 @@ class SpyMainWindow(QMainWindow):
         top_bar.addStretch()
         top_bar.addWidget(self.status_badge)
         top_bar.addSpacing(6)
+        top_bar.addWidget(self.pin_btn)
         top_bar.addWidget(self.min_btn)
         top_bar.addWidget(self.max_btn)
 
@@ -401,6 +409,8 @@ class SpyMainWindow(QMainWindow):
                 self.status_badge.setText("🎯 Inspect Active (Hover / Pick in App)")
                 self.status_badge.setStyleSheet("color: #38bdf8; font-weight: bold; padding-left: 8px;")
                 self._log_msg("🎯 Inspect Mode Active: Move mouse over any widget in the target app to inspect it live, or click it to lock selection.")
+                if not self.pin_btn.isChecked():
+                    self.pin_btn.setChecked(True)
             except Exception as e:
                 self.inspect_btn.setChecked(False)
                 QMessageBox.critical(self, "Inspect Error", f"Failed to start inspect mode: {e}")
@@ -421,7 +431,13 @@ class SpyMainWindow(QMainWindow):
 
         class_name = node.get("className", "QWidget")
         obj_name = node.get("objectName", "")
-        disp = f"<{class_name}> {obj_name}" if obj_name else f"<{class_name}>"
+        text = str(node.get("text", "")).strip()
+        if obj_name:
+            disp = f"<{class_name}> {obj_name}"
+        elif text:
+            disp = f"<{class_name}> \"{text[:20]}\""
+        else:
+            disp = f"<{class_name}>"
         self.status_badge.setText(f"🎯 Inspecting: {disp}")
         self.status_badge.setStyleSheet("color: #38bdf8; font-weight: bold; padding-left: 8px;")
 
@@ -433,17 +449,19 @@ class SpyMainWindow(QMainWindow):
         if locator:
             self.primary_loc_input.setText(locator)
         self._update_properties_table(node)
+
+        # Auto-load tree hierarchy if not loaded yet
+        if self.tree_widget.topLevelItemCount() == 0 and self.client and self.client.is_connected():
+            self.load_tree()
+
         self._highlight_widget_in_tree(node)
 
     def on_pick_event(self, event: Dict[str, Any]):
         self.on_hover_event(event)
-        self.inspect_btn.setChecked(False)
-        self.inspect_btn.setText("🎯 Hover & Pick")
-        self.inspect_btn.setStyleSheet("")
         locator = event.get("locator", "")
-        self.status_badge.setText(f"🟢 Picked: {locator}")
+        self.status_badge.setText(f"🎯 Selected: {locator}")
         self.status_badge.setStyleSheet("color: #34d399; font-weight: bold; padding-left: 8px;")
-        self._log_msg(f"🎯 Successfully picked element: {locator}")
+        self._log_msg(f"🎯 Selected element: {locator}")
 
     def _highlight_widget_in_tree(self, widget_info: Dict[str, Any]):
         target_addr = widget_info.get("address")
@@ -719,6 +737,22 @@ class SpyMainWindow(QMainWindow):
 
     def _log_msg(self, msg: str):
         self.log_output.append(f"• {msg}")
+
+    def toggle_pin(self, checked: bool):
+        flag = getattr(QtCore.Qt, 'WindowType', QtCore.Qt).WindowStaysOnTopHint
+        pos = self.pos()
+        size = self.size()
+        if checked:
+            self.setWindowFlags(self.windowFlags() | flag)
+            self.pin_btn.setStyleSheet("background-color: #0284c7; color: #ffffff;")
+            self._log_msg("📌 Window pinned: Always On Top active.")
+        else:
+            self.setWindowFlags(self.windowFlags() & ~flag)
+            self.pin_btn.setStyleSheet("")
+            self._log_msg("📌 Window unpinned.")
+        self.resize(size)
+        self.move(pos)
+        self.show()
 
     def toggle_maximized(self):
         if self.isMaximized():

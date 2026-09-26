@@ -749,6 +749,7 @@ void AgentServer::onHoverTick() {
             client->flush();
         }
     } else if (!w) {
+        m_lastHoveredWidget = nullptr;
 #if HAS_QT
         if (m_rubberBand) {
             m_rubberBand->hide();
@@ -780,8 +781,7 @@ bool AgentServer::eventFilter(QObject *watched, QEvent *event) {
                     client->flush();
                 }
 
-                // Automatically stop inspect mode upon picking
-                handleStopInspect();
+                // Keep inspect mode active so continuous hovering and inspecting works seamlessly
                 return true; // Consume click event during pick
             }
         }
