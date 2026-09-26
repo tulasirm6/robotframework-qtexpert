@@ -281,10 +281,12 @@ qtexpert-spy --host 127.0.0.1 --port 9988
 ```
 
 ### Key Spy Capabilities:
-- **Interactive Hierarchy Tree**: Real-time searchable tree of all `QWidget`s, geometry coordinates, visibility, and labels.
-- **Instant Locator Generation**: Auto-generates the best Robot Framework locators (`name=...`, `type=... text=...`) with one-click clipboard copy.
-- **Live Action Testing Sandbox**: Send live clicks and keypresses to the target app directly from the Spy window to verify locators before writing tests.
-- **Export to JSON**: One-click dump of the entire application structure.
+- **🎯 Live Hover & Pick Tool**: Live element inspection! Move your mouse over any widget in the target Qt application to inspect it in real-time with an active bounding box highlight, or click any widget to lock selection.
+- **📌 Always On Top (Pin)**: Pin the Spy window so it stays visible in the foreground over your target application during inspection.
+- **🌲 Interactive Hierarchy Tree**: Searchable tree of all `QWidget`s, geometry coordinates, visibility, class names, and text values.
+- **✨ Instant Locator Synthesis**: Auto-generates the best primary and alternative Robot Framework locators (`name=...`, `type=... text=...`) with one-click clipboard copy.
+- **⚡ Live Action Testing Sandbox**: Send live test clicks and typed text to the target app directly from the Spy window to verify locators before writing tests.
+- **💾 Export to JSON**: One-click dump of the entire live application UI structure.
 
 
 ---
