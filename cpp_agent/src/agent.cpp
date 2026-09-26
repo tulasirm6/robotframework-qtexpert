@@ -725,17 +725,23 @@ void AgentServer::onHoverTick() {
         m_lastHoveredWidget = w;
 
 #if HAS_QT
-        if (!m_rubberBand) {
-            m_rubberBand = new QRubberBand(QRubberBand::Rectangle);
-            m_rubberBand->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::SubWindow);
-            m_rubberBand->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-            m_rubberBand->setAttribute(Qt::WA_ShowWithoutActivating, true);
-            m_rubberBand->setStyleSheet("border: 2px solid #38bdf8; background-color: rgba(56, 189, 248, 60);");
+        QWidget *topWin = w->window();
+        if (topWin) {
+            if (!m_rubberBand) {
+                m_rubberBand = new QRubberBand(QRubberBand::Rectangle, topWin);
+                m_rubberBand->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+                m_rubberBand->setStyleSheet("border: 2px solid #38bdf8; background-color: rgba(56, 189, 248, 45);");
+            } else if (m_rubberBand->parentWidget() != topWin) {
+                m_rubberBand->setParent(topWin);
+                m_rubberBand->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+                m_rubberBand->setStyleSheet("border: 2px solid #38bdf8; background-color: rgba(56, 189, 248, 45);");
+            }
+
+            QPoint posInWin = w->mapTo(topWin, QPoint(0, 0));
+            m_rubberBand->setGeometry(QRect(posInWin, w->size()));
+            m_rubberBand->show();
+            m_rubberBand->raise();
         }
-        QPoint topLeft = w->mapToGlobal(QPoint(0, 0));
-        m_rubberBand->setGeometry(QRect(topLeft, w->size()));
-        m_rubberBand->show();
-        m_rubberBand->raise();
 #endif
 
         QJsonObject info;
