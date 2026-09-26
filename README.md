@@ -28,35 +28,7 @@ A unified Robot Framework library for automating and testing Qt desktop applicat
 
 ## 💡 How It Works (Architecture & Concepts)
 
-```mermaid
-flowchart TD
-    subgraph TestRunner ["Robot Framework Process (Python)"]
-        RF[Robot Framework Test Suite]
-        KW[Generic Keywords: Click Object, Type Text, etc.]
-        BE[Backend Client: PreloadClient / AgentClient]
-        RF --> KW --> BE
-    end
-
-    subgraph TargetApp ["Target Qt Application Process (Unmodified)"]
-        direction TB
-        subgraph InjectedAgent ["Injected Test Agent (Embedded Thread)"]
-            TCP[TCP / XML-RPC Server]
-            Dispatcher[Main Thread Event Dispatcher]
-            TCP --> Dispatcher
-        end
-
-        subgraph QtMainThread ["Qt GUI Main Event Loop"]
-            QApp[QApplication / QEventLoop]
-            Tree[QObject Hierarchy / Meta-Object System]
-            QTest[QTest Native Event Dispatcher]
-            Dispatcher -- QMetaObject::invokeMethod / BlockingQueuedConnection --> QApp
-            QApp --> Tree
-            QApp --> QTest
-        end
-    end
-
-    BE <-- TCP Socket (JSON Commands) --> TCP
-```
+![C++ Application Automated Testing Workflow via Dynamic Agent Injection](docs/images/architecture.png)
 
 ### 1. Dynamic Injection via `LD_PRELOAD`
 On Linux, the dynamic linker loads `libqt_test_agent.so` before the target application executes. A C++ constructor (`__attribute__((constructor))`) runs prior to `main()`, spawning a lightweight background monitor thread that detects `QCoreApplication::instance()` as soon as the app starts.
